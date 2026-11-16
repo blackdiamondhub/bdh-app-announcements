@@ -1,6 +1,6 @@
 from bdh_sdk import PluginSpec, Setting, SettingsPage
 from bdh_sdk.alerts import CHIMES
-from bdh_sdk.plugins import CHOICE, INT, MULTI
+from bdh_sdk.plugins import CHOICE, INT, LIFECYCLE_ALWAYS, MULTI, NETWORK_NONE
 
 CHIME_CHOICES = (("none", "No chime"),) + tuple(
     (c, c.replace("-", " ").capitalize()) for c in CHIMES)
@@ -25,4 +25,11 @@ spec = PluginSpec(
                      subtitle="The messages shown as quick actions",
                      icon="fas fa-bullhorn"),
     ),
+    api_version=2,
+    # Lists speakers and announces through the hub; never talks to anything else.
+    permissions=("speakers",),
+    network=NETWORK_NONE,
+    # A shortcut tap should announce at once, not wait for a cold start.
+    lifecycle=LIFECYCLE_ALWAYS,
+    memory_mb=96,
 )
