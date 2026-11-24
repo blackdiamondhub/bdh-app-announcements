@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.urls]
-Source = "https://github.com/blackdiamondlodge/bdh-app-announcements"
+Source = "https://github.com/blackdiamondhub/bdh-app-announcements"
 
 [project.entry-points."blackdiamondhub.plugins"]
 announcements = "announcements.plugin:spec"
