@@ -3,7 +3,7 @@
 Black Diamond Hub app: one-tap spoken announcements ("Dinner's ready!") on the
 house's Sonos and Alexa speakers. Installed into the hub through the
 `blackdiamondhub.plugins` entry point (see
-[bdh-sdk](https://github.com/blackdiamondlodge/bdh-sdk)).
+[bdh-sdk](https://github.com/blackdiamondhub/bdh-sdk)).
 
 The app has no tile. Each button set up under **Settings › Announcements ›
 Buttons** becomes a homepage quick action. Tapping it plays the chosen chime,
