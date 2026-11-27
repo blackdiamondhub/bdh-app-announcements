@@ -33,7 +33,7 @@
         <button type="button" class="hst-btn ghost" id="an-addcancel">Cancel</button>
         <button class="hst-btn" name="action" value="add">Add button</button>
         {% else %}
-        <button class="hst-btn ghost del" name="action" value="delete" formnovalidate onclick="return confirm('Remove {{ b.title|escapejs }}?')">Remove</button>
+        <button class="hst-btn ghost del" name="action" value="delete" formnovalidate data-bdh-confirm="Remove {{ b.title }}?" data-bdh-confirm-ok="Remove">Remove</button>
         <button class="hst-btn ghost" name="action" value="test" formnovalidate title="Plays it on the speakers now">▶ Test</button>
         <button class="hst-btn" name="action" value="save">Save</button>
         {% endif %}
