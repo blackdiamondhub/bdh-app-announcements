@@ -4,11 +4,15 @@ Buttons live in the app's state as a list of dicts:
 ``{"id", "title", "icon", "message", "speakers"}``, where ``speakers`` is
 ``None`` for "All speakers" or a list of media_player entity ids.
 """
+import logging
+import time
 import uuid
 
 from bdh_sdk.plugins import as_list
 from bdh_sdk.settings import app_setting
 from bdh_sdk.storage import app_state
+
+log = logging.getLogger(__name__)
 
 APP = "announcements"
 KEY = "buttons"
@@ -19,6 +23,10 @@ MAX_MESSAGE = 300
 ICONS = ("utensils", "car", "bed", "bullhorn", "person-walking",
          "gift", "phone", "book", "dog", "bell")
 DEFAULT_ICON = "bullhorn"
+KNOWN_TTL = 60  # seconds between speaker lookups for the homepage
+NOT_SET_UP = "isn't set up"  # in the hub's error when it has no Home Assistant
+
+_known = {"ids": None, "at": None}
 
 
 def load():
@@ -100,15 +108,50 @@ def chime():
     return None if value in (None, "", "none") else value
 
 
+def forget_speakers():
+    _known.update(ids=None, at=None)
+
+
+def known_speakers():
+    """Ids of the speakers Home Assistant has, or None when it has none to give.
+
+    Looked up at most every ``KNOWN_TTL`` seconds. When Home Assistant is
+    unreachable the last list is kept, so a blip doesn't hide the buttons;
+    when the hub has no Home Assistant set up there are no speakers at all.
+    """
+    from bdh_sdk import speakers as sp
+
+    now = time.monotonic()
+    if _known["at"] is not None and now - _known["at"] < KNOWN_TTL:
+        return _known["ids"]
+    try:
+        ids = frozenset(sid for sid, _name in sp.list_speakers())
+    except Exception as exc:
+        log.warning("couldn't list speakers: %s", exc)
+        ids = None if NOT_SET_UP in str(exc) else _known["ids"]
+    _known.update(ids=ids, at=now)
+    return ids
+
+
+def targets(button):
+    return button.get("speakers") or all_speakers()
+
+
+def playable(button):
+    """Whether at least one of the button's speakers exists in Home Assistant."""
+    known = known_speakers()
+    return bool(known) and any(s in known for s in targets(button))
+
+
 def play(button):
     """Announce ``button``; returns a short result for the user."""
     from bdh_sdk import speakers as sp
 
-    targets = button.get("speakers") or all_speakers()
-    if not targets:
+    speakers = targets(button)
+    if not speakers:
         raise sp.AnnounceError('No speakers set up. Pick them under Settings › Announcements.')
-    failed = sp.announce(button["message"], targets, volume=volume(), chime=chime(), voice=VOICE)
-    played = len(targets) - len(failed)
+    failed = sp.announce(button["message"], speakers, volume=volume(), chime=chime(), voice=VOICE)
+    played = len(speakers) - len(failed)
     noun = "speaker" if played == 1 else "speakers"
     if failed:
         return f"Announced on {played} {noun}, {len(failed)} didn't respond"
