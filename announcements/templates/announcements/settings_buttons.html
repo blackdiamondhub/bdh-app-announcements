@@ -39,6 +39,7 @@
     .an-chime button { padding: 4px 10px; }
     .an-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--mut); font-size: 14px; text-decoration: none; }
     .an-back:hover { color: var(--acc2); }
+    .an-hidden { color: #ffd36b; }
 </style>
 
 <div class="hst-head">
@@ -56,6 +57,7 @@
 </div>
 
 {% if note %}<div class="hst-note {{ note.0 }}">{{ note.1 }}</div>{% endif %}
+{% if speakers_error %}<div class="hst-note bad" id="an-no-speakers">{{ speakers_error }} Buttons aren't shown on the homepage until their speakers can be found.</div>{% endif %}
 
 {% for b in buttons %}
 <details class="hst-card an-btn"{% if b.id == open_id %} open{% endif %}>
@@ -67,7 +69,7 @@
     </form>
     <span class="ic"><i class="fa-solid fa-{{ b.icon }}"></i></span>
     <span class="tx"><span class="nm">{{ b.title }}</span><div class="say">“{{ b.message }}”</div></span>
-    <span class="st">{{ b.where }}</span>
+    <span class="st">{% if b.hidden %}<span class="an-hidden">Not on homepage: no speakers found</span>{% else %}{{ b.where }}{% endif %}</span>
     <span class="chev" aria-hidden="true">›</span>
 </summary>
 {% include "announcements/_button_form.html" with b=b add=False %}

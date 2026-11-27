@@ -11,6 +11,12 @@ then speaks the button's message on its speakers through `bdh_sdk.speakers`.
 Sonos plays the chime and uses the set volume. Alexa uses its own announcement
 tone and volume.
 
+The app works through Home Assistant (the hub's `speakers` broker op). A button
+is left off the homepage while none of its speakers can be found, including on a
+hub with no Home Assistant set up; the Buttons page says why. The speaker list is
+checked at most once a minute, and a Home Assistant outage keeps the last list so
+buttons don't flicker.
+
 Settings:
 
 - **Volume**: the Sonos announcement volume. Speakers return to their own

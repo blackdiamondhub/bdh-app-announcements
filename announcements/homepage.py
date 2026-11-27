@@ -4,10 +4,13 @@ from . import buttons
 
 
 def shortcuts():
+    # A button whose speakers can't be found (or a hub without Home
+    # Assistant) would only ever fail, so it isn't offered.
     return [
         Shortcut(id=b["id"], title=b["title"], icon=f"fa-solid fa-{b['icon']}",
                  order=50 + n, modes=ALL_MODES)
         for n, b in enumerate(buttons.load())
+        if buttons.playable(b)
     ]
 
 

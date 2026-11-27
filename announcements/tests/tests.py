@@ -1,4 +1,5 @@
 import os
+import time
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -49,7 +50,12 @@ class ButtonStoreTests(TestCase):
 
 
 @patch.dict(os.environ, ENV)
+@patch("bdh_sdk.speakers.list_speakers", new=lambda: SPEAKERS)
 class ShortcutTests(TestCase):
+    def setUp(self):
+        buttons.forget_speakers()
+        self.addCleanup(buttons.forget_speakers)
+
     def test_every_button_is_a_shortcut_in_order(self):
         a = buttons.add(_fields())
         b = buttons.add(_fields("Car", "Time to go!", icon="car"))
@@ -89,6 +95,55 @@ class ShortcutTests(TestCase):
     def test_unknown_shortcut(self):
         with self.assertRaises(LookupError):
             homepage.run_shortcut("nope")
+
+
+@patch.dict(os.environ, ENV)
+class UnplayableShortcutTests(TestCase):
+    """Buttons that could only fail aren't offered on the homepage."""
+
+    def setUp(self):
+        buttons.forget_speakers()
+        self.addCleanup(buttons.forget_speakers)
+
+    def ids(self):
+        return [s.id for s in homepage.shortcuts()]
+
+    @patch("bdh_sdk.speakers.list_speakers",
+           side_effect=RuntimeError("Home Assistant isn't set up (Settings → Home Assistant)"))
+    def test_hub_without_home_assistant_offers_none(self, _ls):
+        buttons.add(_fields())
+        buttons.add(_fields(mode="pick", picked=["media_player.kitchen"]))
+        self.assertEqual(self.ids(), [])
+
+    @patch("bdh_sdk.speakers.list_speakers", return_value=SPEAKERS)
+    def test_button_whose_speakers_are_gone_is_hidden(self, _ls):
+        gone = buttons.add(_fields(mode="pick", picked=["media_player.attic"]))
+        some = buttons.add(_fields(mode="pick", picked=["media_player.attic", "media_player.kitchen"]))
+        everywhere = buttons.add(_fields())
+        self.assertEqual(self.ids(), [some["id"], everywhere["id"]])
+        self.assertNotIn(gone["id"], self.ids())
+
+    @patch("bdh_sdk.speakers.list_speakers", return_value=SPEAKERS)
+    def test_all_speakers_button_needs_the_all_speakers_setting(self, _ls):
+        buttons.add(_fields())
+        with patch.dict(os.environ, {"BDH_ANNOUNCEMENTS_SPEAKERS": ""}):
+            self.assertEqual(self.ids(), [])
+
+    @patch("bdh_sdk.speakers.list_speakers", return_value=SPEAKERS)
+    def test_home_assistant_blip_keeps_the_buttons(self, ls):
+        a = buttons.add(_fields())
+        self.assertEqual(self.ids(), [a["id"]])
+        ls.side_effect = RuntimeError("Home Assistant unreachable: timed out")
+        with patch("announcements.buttons.time.monotonic", return_value=time.monotonic() + 3600):
+            self.assertEqual(self.ids(), [a["id"]])
+        self.assertEqual(ls.call_count, 2)
+
+    @patch("bdh_sdk.speakers.list_speakers", return_value=SPEAKERS)
+    def test_speakers_are_looked_up_at_most_once_a_minute(self, ls):
+        buttons.add(_fields())
+        self.ids()
+        self.ids()
+        self.assertEqual(ls.call_count, 1)
 
 
 @patch.dict(os.environ, ENV)
@@ -159,3 +214,18 @@ class ButtonsPageTests(TestCase):
         buttons.add(_fields(mode="pick", picked=["media_player.kitchen"]))
         r = self.client.get(self.url)
         self.assertContains(r, "Couldn&#x27;t reach Home Assistant")
+        self.assertNotContains(r, "Not on homepage")  # an outage isn't the button's fault
+
+    def test_page_explains_a_hub_without_home_assistant(self, ls):
+        ls.side_effect = RuntimeError("Home Assistant isn't set up (Settings → Home Assistant)")
+        self.client.force_login(self.admin)
+        r = self.client.get(self.url)
+        self.assertContains(r, "Home Assistant isn&#x27;t set up on this hub")
+        self.assertContains(r, "aren't shown on the homepage")
+
+    def test_page_flags_buttons_hidden_from_the_homepage(self, _ls):
+        self.client.force_login(self.admin)
+        buttons.add(_fields("Attic", mode="pick", picked=["media_player.attic"]))
+        buttons.add(_fields("Kitchen", mode="pick", picked=["media_player.kitchen"]))
+        r = self.client.get(self.url)
+        self.assertContains(r, "Not on homepage: no speakers found", count=1)

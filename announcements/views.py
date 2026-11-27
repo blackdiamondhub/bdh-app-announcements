@@ -27,6 +27,8 @@ def _speakers():
         return list(sp.list_speakers()), ""
     except Exception as exc:  # HA down or not configured
         log.warning("couldn't list speakers: %s", exc)
+        if buttons.NOT_SET_UP in str(exc):
+            return [], "Home Assistant isn't set up on this hub (Settings › Home Assistant)."
         return [], "Couldn't reach Home Assistant to list speakers."
 
 
@@ -100,6 +102,8 @@ def buttons_page(request):
             "chosen": chosen,
             "play_on": "pick" if chosen else "all",
             "where": ", ".join(names.get(s, s).split(" (")[0] for s in chosen) or "All speakers",
+            # Only judged when HA answered; an outage isn't the button's fault.
+            "hidden": not speakers_error and not any(s in names for s in buttons.targets(b)),
         })
     return render(request, "announcements/settings_buttons.html", {
         "buttons": rows,
